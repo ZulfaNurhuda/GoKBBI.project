@@ -359,10 +359,10 @@ Aplikasi menangani berbagai kondisi error:
 
 ### <div id="penting-penggunaan-bertanggung-jawab">**⚠️・Gunakan dengan Bijak dan Bertanggung Jawab!**</div>
 
-- Gunakan delay yang wajar antara request untuk menghindari pemblokiran
-- Jangan melakukan request berlebihan dalam waktu singkat
-- Hormati _terms of service_ KBBI Daring
-- Gunakan fitur retry dengan bijak
+- 🕒 Gunakan delay yang wajar antara request untuk menghindari pemblokiran
+- 🚫 Jangan melakukan request berlebihan dalam waktu singkat  
+- 📋 Hormati _terms of service_ KBBI Daring
+- 🔄 Gunakan fitur retry dengan bijak
 
 ---
 
@@ -375,15 +375,6 @@ Punya ide keren? Menemukan bug yang menyebalkan? Ingin menambah fitur awesome? K
 ### <div id="license">**📜・Lisensi MIT yang Bebas!**</div>
 
 Proyek ini open-source dan dengan bangga didistribusikan di bawah MIT License. Ini artinya Anda bebas untuk explore, use, modify, dan share GoKBBI! Anda bisa menemukan semua detail lengkapnya di file `LICENSE`. Happy coding!
-
----
-
-### **⚠️・Penting: Penggunaan Bertanggung Jawab**
-
-- 🕒 Gunakan delay yang wajar antara request untuk menghindari pemblokiran
-- 🚫 Jangan melakukan request berlebihan dalam waktu singkat  
-- 📋 Hormati _terms of service_ KBBI Daring
-- 🔄 Gunakan fitur retry dengan bijak
 
 ---
 
