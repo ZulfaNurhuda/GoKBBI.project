@@ -11,6 +11,7 @@ import (
 	"time"
 	
 	"github.com/ZulfaNurhuda/GoKBBI.project/internal/auth"
+	"github.com/ZulfaNurhuda/GoKBBI.project/internal/cache"
 )
 
 const (
@@ -52,6 +53,44 @@ var (
 
 // AmbilHalaman mengambil halaman dari KBBI berdasarkan kata pencarian
 func AmbilHalaman(kata string, autentikasi *auth.AutentikasiKBBI) (string, error) {
+	return AmbilHalamanDenganCache(kata, autentikasi, "", false)
+}
+
+// AmbilHalamanDenganCache mengambil halaman dari KBBI dengan dukungan cache
+func AmbilHalamanDenganCache(kata string, autentikasi *auth.AutentikasiKBBI, lokasiKuki string, tanpaCache bool) (string, error) {
+	var managerCache *cache.ManagerCache
+	var err error
+
+	// Inisialisasi cache manager jika cache digunakan
+	if !tanpaCache {
+		managerCache, err = cache.BaruManagerCache(lokasiKuki)
+		if err != nil {
+			// Jika gagal membuat cache manager, lanjutkan tanpa cache
+			managerCache = nil
+		}
+	}
+
+	// Coba ambil dari cache terlebih dahulu jika cache aktif
+	if managerCache != nil {
+		if htmlCache, found := managerCache.AmbilCache(kata); found {
+			return htmlCache, nil
+		}
+	}
+
+	// Jika tidak ada di cache atau cache dinonaktifkan, ambil dari KBBI
+	html, err := ambilHalamanLangsung(kata, autentikasi)
+	
+	// Simpan ke cache hanya jika berhasil (tidak ada error) dan cache aktif
+	if managerCache != nil && err == nil {
+		// Simpan ke cache, abaikan error penyimpanan
+		managerCache.SimpanCache(kata, html)
+	}
+
+	return html, err
+}
+
+// ambilHalamanLangsung mengambil halaman langsung dari KBBI tanpa cache
+func ambilHalamanLangsung(kata string, autentikasi *auth.AutentikasiKBBI) (string, error) {
 	var client *http.Client
 	
 	if autentikasi != nil {
@@ -166,9 +205,16 @@ func cekKesalahan(urlResponse, htmlContent string) error {
 		return ErrAkunDibekukan
 	}
 
-	// Periksa konten HTML untuk "tidak ditemukan"
+	// Periksa konten HTML untuk berbagai error
 	if strings.Contains(htmlContent, "Entri tidak ditemukan.") {
 		return ErrTidakDitemukan
+	}
+	
+	// Periksa konten HTML untuk moda terbatas
+	if strings.Contains(htmlContent, "Moda terbatas sedang diaktifkan") || 
+	   strings.Contains(htmlContent, "pengguna tidak terdaftar tidak dapat dilayani") ||
+	   strings.Contains(htmlContent, "moda terbatas") {
+		return ErrModaTerbatas
 	}
 
 	return nil
@@ -176,10 +222,15 @@ func cekKesalahan(urlResponse, htmlContent string) error {
 
 // AmbilHalamanDenganRetry mengambil halaman dengan retry mechanism
 func AmbilHalamanDenganRetry(kata string, autentikasi *auth.AutentikasiKBBI, maxRetry int) (string, error) {
+	return AmbilHalamanDenganRetrydanCache(kata, autentikasi, maxRetry, "", false)
+}
+
+// AmbilHalamanDenganRetrydanCache mengambil halaman dengan retry mechanism dan dukungan cache
+func AmbilHalamanDenganRetrydanCache(kata string, autentikasi *auth.AutentikasiKBBI, maxRetry int, lokasiKuki string, tanpaCache bool) (string, error) {
 	var lastErr error
 	
 	for i := 0; i < maxRetry; i++ {
-		html, err := AmbilHalaman(kata, autentikasi)
+		html, err := AmbilHalamanDenganCache(kata, autentikasi, lokasiKuki, tanpaCache)
 		if err != nil {
 			// Jika error adalah kesalahan KBBI tertentu, jangan retry
 			if kesalahanKBBI, ok := err.(*KesalahanKBBI); ok {

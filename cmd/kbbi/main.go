@@ -21,6 +21,7 @@ var (
 	indentJSON    = flag.Bool("indent", false, "gunakan indentasi untuk output JSON")
 	tanpaContoh   = flag.Bool("tanpa-contoh", false, "jangan tampilkan contoh penggunaan")
 	tanpaTerkait  = flag.Bool("tanpa-terkait", false, "jangan tampilkan kata terkait")
+	tanpaCache    = flag.Bool("tanpa-cache", false, "langsung request ke KBBI tanpa menggunakan cache")
 	nonpengguna   = flag.Bool("nonpengguna", false, "nonaktifkan fitur khusus pengguna")
 
 	// Flag untuk autentikasi
@@ -113,6 +114,7 @@ func tampilkanBantuan() {
 	fmt.Println("    --indent                Gunakan indentasi untuk JSON (hanya dengan --json)")
 	fmt.Println("    --tanpa-contoh          Jangan tampilkan contoh penggunaan")
 	fmt.Println("    --tanpa-terkait         Jangan tampilkan kata terkait")
+	fmt.Println("    --tanpa-cache           Langsung request ke KBBI tanpa menggunakan cache")
 	fmt.Println("    --nonpengguna           Nonaktifkan fitur khusus pengguna")
 	
 	fmt.Println("\n  Autentikasi:")
@@ -190,7 +192,7 @@ func lakukanPencarian() error {
 	var autentikasiObj *auth.AutentikasiKBBI
 	var err error
 
-	// Cek apakah ada kuki yang tersimpan (kecuali jika nonpengguna)
+	// Cek apakah ada kuki yang tersimpan
 	if !*nonpengguna {
 		// Coba buat autentikasi dengan kuki yang ada
 		autentikasiObj, err = auth.BaruAuth("", "", *lokasiKuki)
@@ -200,48 +202,55 @@ func lakukanPencarian() error {
 		}
 	}
 
-	// Ambil halaman KBBI
-	html, err := fetcher.AmbilHalamanDenganRetry(*kata, autentikasiObj, 3)
+	// Ambil definisi dari KBBI Kemendikbud
+	var html string
+	if *tanpaCache {
+		html, err = fetcher.AmbilHalaman(*kata, autentikasiObj)
+	} else {
+		html, err = fetcher.AmbilHalamanDenganCache(*kata, autentikasiObj, *lokasiKuki, *tanpaCache)
+	}
+	
 	if err != nil {
 		// Jika error adalah TidakDitemukan dan ada HTML, parse untuk saran
 		if kesalahanKBBI, ok := err.(*fetcher.KesalahanKBBI); ok && kesalahanKBBI.Jenis == "TidakDitemukan" && html != "" {
-			return tampilkanSaran(html, autentikasiObj)
+			// Parse saran entri
+			terautentikasi := autentikasiObj != nil && autentikasiObj.Terautentikasi
+			definisi, parseErr := parser.ParseDefinisi(html, terautentikasi)
+			if parseErr != nil {
+				return parseErr
+			}
+			parser.SetPranala(definisi, *kata)
+			
+			// Tampilkan hasil dengan saran
+			if len(definisi.SaranEntri) > 0 {
+				return tampilkanHasil(definisi)
+			}
 		}
-		return err
+		return fmt.Errorf("gagal mengambil data dari KBBI: %w", err)
 	}
-
+	
 	// Parse HTML menjadi definisi
 	terautentikasi := autentikasiObj != nil && autentikasiObj.Terautentikasi
 	definisi, err := parser.ParseDefinisi(html, terautentikasi)
 	if err != nil {
-		return fmt.Errorf("gagal parsing HTML: %w", err)
+		return fmt.Errorf("gagal parsing definisi: %w", err)
 	}
-
+	
 	// Set pranala
 	parser.SetPranala(definisi, *kata)
+	
+	// Jika tidak ada entri ditemukan, tampilkan pesan
+	if len(definisi.Entri) == 0 && len(definisi.SaranEntri) == 0 {
+		if !*outputJSON {
+			fmt.Printf("%s tidak ditemukan dalam KBBI.\n", *kata)
+		}
+		return nil
+	}
 
 	// Tampilkan hasil
 	return tampilkanHasil(definisi)
 }
 
-// tampilkanSaran menangani kasus entri tidak ditemukan dengan saran
-func tampilkanSaran(html string, autentikasiObj *auth.AutentikasiKBBI) error {
-	terautentikasi := autentikasiObj != nil && autentikasiObj.Terautentikasi
-	definisi, err := parser.ParseDefinisi(html, terautentikasi)
-	if err != nil {
-		return fmt.Errorf("gagal parsing saran: %w", err)
-	}
-
-	if !*outputJSON {
-		fmt.Printf("%s tidak ditemukan dalam KBBI.\n", *kata)
-	}
-
-	if len(definisi.SaranEntri) > 0 && (terautentikasi || *outputJSON) {
-		return tampilkanHasil(definisi)
-	}
-
-	return nil
-}
 
 // tampilkanHasil menampilkan hasil pencarian
 func tampilkanHasil(definisi *model.Definisi) error {
@@ -306,9 +315,7 @@ func hapusTerkait(text string) string {
 		
 		// Skip baris yang dimulai dengan angka dan → (rujukan internal dalam makna)
 		if skipMode || strings.HasPrefix(trimmed, "Kata Turunan") ||
-		   strings.HasPrefix(trimmed, "Gabungan Kata") ||
-		   strings.HasPrefix(trimmed, "Peribahasa") ||
-		   strings.HasPrefix(trimmed, "Idiom") {
+		   strings.HasPrefix(trimmed, "Gabungan Kata") {
 			skipMode = true
 			continue
 		}

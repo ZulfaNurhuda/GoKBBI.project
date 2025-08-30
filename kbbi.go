@@ -231,3 +231,4 @@ func LoadAuth(lokasiKuki string) (*Auth, error) {
 func CekKoneksi() error {
 	return fetcher.CekKoneksi()
 }
+

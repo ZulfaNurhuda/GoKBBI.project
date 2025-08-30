@@ -18,6 +18,8 @@ func ParseDefinisi(html string, terautentikasi bool) (*model.Definisi, error) {
 
 	definisi := &model.Definisi{
 		Entri:      []model.Entri{},
+		Peribahasa: []string{},
+		Idiom:      []string{},
 		SaranEntri: []string{},
 	}
 
@@ -29,6 +31,9 @@ func ParseDefinisi(html string, terautentikasi bool) (*model.Definisi, error) {
 
 	// Parse entri normal
 	definisi.Entri = parseEntriList(doc, terautentikasi)
+	
+	// Parse Peribahasa dan Idiom di level definisi
+	parsePeribahawanIdiom(doc, definisi)
 	
 	return definisi, nil
 }
@@ -320,8 +325,6 @@ func parseTerkait(doc *goquery.Document, entri *model.Entri) {
 	headerMap := map[string]*[]string{
 		"Kata Turunan":   &entri.KataTurunan,
 		"Gabungan Kata":  &entri.GabunganKata,
-		"Peribahasa":     &entri.Peribahasa,
-		"Idiom":          &entri.Idiom,
 	}
 
 	doc.Find("h4").Each(func(i int, s *goquery.Selection) {
@@ -544,6 +547,37 @@ func ambilTeksDalamLabel(s *goquery.Selection) string {
 	})
 	
 	return strings.Join(textParts, " ")
+}
+
+// parsePeribahawanIdiom mengurai Peribahasa dan Idiom di level definisi
+func parsePeribahawanIdiom(doc *goquery.Document, definisi *model.Definisi) {
+	doc.Find("h4").Each(func(i int, s *goquery.Selection) {
+		headerText := strings.TrimSpace(s.Text())
+		
+		if strings.Contains(headerText, "Peribahasa") {
+			// Ambil link-link di sibling berikutnya
+			next := s.Next()
+			if next.Length() > 0 {
+				next.Find("a").Each(func(j int, link *goquery.Selection) {
+					text := strings.TrimSpace(link.Text())
+					if text != "" {
+						definisi.Peribahasa = append(definisi.Peribahasa, text)
+					}
+				})
+			}
+		} else if strings.Contains(headerText, "Idiom") {
+			// Ambil link-link di sibling berikutnya
+			next := s.Next()
+			if next.Length() > 0 {
+				next.Find("a").Each(func(j int, link *goquery.Selection) {
+					text := strings.TrimSpace(link.Text())
+					if text != "" {
+						definisi.Idiom = append(definisi.Idiom, text)
+					}
+				})
+			}
+		}
+	})
 }
 
 // SetPranala mengatur pranala dalam definisi

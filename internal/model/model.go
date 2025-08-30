@@ -11,6 +11,8 @@ import (
 type Definisi struct {
 	Pranala    string   `json:"pranala"`
 	Entri      []Entri  `json:"entri"`
+	Peribahasa []string `json:"peribahasa,omitempty"`
+	Idiom      []string `json:"idiom,omitempty"`
 	SaranEntri []string `json:"saran_entri,omitempty"`
 }
 
@@ -26,8 +28,6 @@ type Entri struct {
 	Etimologi        *Etimologi  `json:"etimologi,omitempty"`
 	KataTurunan      []string    `json:"kata_turunan,omitempty"`
 	GabunganKata     []string    `json:"gabungan_kata,omitempty"`
-	Peribahasa       []string    `json:"peribahasa,omitempty"`
-	Idiom            []string    `json:"idiom,omitempty"`
 }
 
 // Makna merepresentasikan makna dari sebuah entri
@@ -65,6 +65,17 @@ func (d *Definisi) String() string {
 	for _, entri := range d.Entri {
 		hasil = append(hasil, entri.String())
 	}
+	
+	// Tambahkan Peribahasa dan Idiom jika ada
+	if len(d.Peribahasa) > 0 {
+		hasil = append(hasil, fmt.Sprintf("\nPeribahasa\n%s", 
+			strings.Join(d.Peribahasa, "; ")))
+	}
+	if len(d.Idiom) > 0 {
+		hasil = append(hasil, fmt.Sprintf("\nIdiom\n%s", 
+			strings.Join(d.Idiom, "; ")))
+	}
+	
 	return strings.Join(hasil, "\n\n")
 }
 
@@ -113,7 +124,6 @@ func (e *Entri) String() string {
 	}
 	
 	// Kata terkait
-	namaMurni := strings.ReplaceAll(e.Nama, ".", "")
 	if len(e.KataTurunan) > 0 {
 		hasil = append(hasil, fmt.Sprintf("\nKata Turunan\n%s", 
 			strings.Join(e.KataTurunan, "; ")))
@@ -121,14 +131,6 @@ func (e *Entri) String() string {
 	if len(e.GabunganKata) > 0 {
 		hasil = append(hasil, fmt.Sprintf("\nGabungan Kata\n%s", 
 			strings.Join(e.GabunganKata, "; ")))
-	}
-	if len(e.Peribahasa) > 0 {
-		hasil = append(hasil, fmt.Sprintf("\nPeribahasa (mengandung [%s])\n%s", 
-			namaMurni, strings.Join(e.Peribahasa, "; ")))
-	}
-	if len(e.Idiom) > 0 {
-		hasil = append(hasil, fmt.Sprintf("\nIdiom (mengandung [%s])\n%s", 
-			namaMurni, strings.Join(e.Idiom, "; ")))
 	}
 	
 	return strings.Join(hasil, "\n")
